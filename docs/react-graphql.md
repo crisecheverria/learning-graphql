@@ -342,3 +342,59 @@ const Repository = ({ repository }) => (
 ```
 
 ## Todo: GraphQL Variables and Arguments in React
+
+```js
+const GET_ISSUES_OF_REPOSITORY = `
+query ($organization: String!, $repository: String!) {
+  organization(login: $organization) {
+    name
+    url
+    repository(name: $repository) {
+      name
+      url
+      issues(last: 5) {
+        edges {
+          node {
+            id
+            title
+            url
+          }
+        }
+      }
+    }
+  }
+}
+`;
+
+function App() => {
+  ...
+
+  const onSubmit = (e) => {
+    onFetchFromGitHub(repository.path);
+    e.preventDefault();
+  };
+
+  const onFetchFromGitHub = (path) => {
+    const [organization, repository] = path.split("/");
+
+    axiosGitHubGraphQL
+      .post("", {
+        query: GET_ISSUES_OF_REPOSITORY,
+        variables: { organization, repository },
+      })
+      .then((result) =>
+        setRepository({
+          organization: result.data.data.organization,
+          errors: result.data.errors,
+        })
+      );
+  };
+
+  useEffect(() => {
+    repository.path && onFetchFromGitHub(repository.path);
+  }, [repository.path]);
+
+  ...
+
+}
+```
