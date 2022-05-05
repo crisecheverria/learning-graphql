@@ -341,7 +341,7 @@ const Repository = ({ repository }) => (
 );
 ```
 
-## Todo: GraphQL Variables and Arguments in React
+## GraphQL Variables and Arguments in React
 
 ```js
 const GET_ISSUES_OF_REPOSITORY = `
@@ -396,5 +396,35 @@ function App() => {
 
   ...
 
+}
+```
+
+## Code Refactor
+
+```js
+const getIssuesOfRepository = (path) => {
+  const [organization, repository] = path.split("/");
+
+  return axiosGitHubGraphQL.post("", {
+    query: GET_ISSUES_OF_REPOSITORY,
+    variables: { organization, repository },
+  });
+};
+
+const resolveIssuesQuery = (queryResult) => () => ({
+  organization: queryResult.data.data.organization,
+  errors: queryResult.data.errors,
+});
+
+function App() {
+  ...
+
+  const onFetchFromGitHub = (path) => {
+    getIssuesOfRepository(path).then((queryResult) =>
+      setRepository(resolveIssuesQuery(queryResult))
+    );
+  };
+
+  ...
 }
 ```
