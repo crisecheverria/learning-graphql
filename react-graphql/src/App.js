@@ -1,72 +1,71 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import "./App.css";
-import axios from "axios";
+import { useQuery, gql } from "@apollo/client";
 
-const axiosGitHubGraphQL = axios.create({
-  baseURL: "https://api.github.com/graphql",
-  headers: {
-    Authorization: `bearer ${process.env.REACT_APP_GITHUB_PERSONAL_ACCESS_TOKEN}`,
-  },
-});
-
-const GET_ISSUES_OF_REPOSITORY = `
-query ($organization: String!, $repository: String!) {
-  organization(login: $organization) {
-    name
-    url
-    repository(name: $repository) {
+const GET_ISSUES_OF_REPOSITORY = gql`
+  query ($organization: String!, $repository: String!) {
+    organization(login: $organization) {
       name
       url
-      issues(last: 5) {
-        edges {
-          node {
-            id
-            title
-            url
+      repository(name: $repository) {
+        name
+        url
+        issues(last: 5) {
+          edges {
+            node {
+              id
+              title
+              url
+            }
           }
         }
       }
     }
   }
-}
 `;
 
-const getIssuesOfRepository = (path) => {
-  const [organization, repository] = path.split("/");
-
-  return axiosGitHubGraphQL.post("", {
-    query: GET_ISSUES_OF_REPOSITORY,
-    variables: { organization, repository },
-  });
-};
-
-const resolveIssuesQuery = (queryResult) => () => ({
-  organization: queryResult.data.data.organization,
-  errors: queryResult.data.errors,
-});
+const initialPath = "the-road-to-learn-react/the-road-to-learn-react";
 
 function App() {
   const [repository, setRepository] = useState({
-    path: "the-road-to-learn-react/the-road-to-learn-react",
+    path: initialPath,
     organization: null,
-    errors: null,
+  });
+
+  const [org, rep] = initialPath.split("/");
+  const { loading, error, refetch } = useQuery(GET_ISSUES_OF_REPOSITORY, {
+    variables: {
+      organization: org,
+      repository: rep,
+    },
+    onCompleted: (data) =>
+      setRepository((prevState) => ({
+        ...prevState,
+        organization: data.organization,
+        repository: data.organization.repository,
+      })),
   });
 
   const onSubmit = (e) => {
-    onFetchFromGitHub(repository.path);
+    const [org, rep] = repository.path.split("/");
+    refetch({ organization: org, repository: rep });
     e.preventDefault();
   };
 
   const onChange = (event) => setRepository({ path: event.target.value });
 
-  const onFetchFromGitHub = (path) =>
-    getIssuesOfRepository(path).then((queryResult) =>
-      setRepository(resolveIssuesQuery(queryResult))
-    );
+  if (loading) {
+    return <p style={{ textAlign: "center" }}>Loading ...</p>;
+  }
 
-  useEffect(() => {
-    repository.path && onFetchFromGitHub(repository.path);
-  }, [repository.path]);
+  if (error) {
+    return (
+      <p style={{ textAlign: "center" }}>
+        <strong>Something went wrong:</strong>
+        {error.message}
+      </p>
+    );
+  }
 
   return (
     <div className="App">
@@ -83,27 +82,14 @@ function App() {
         <button type="submit">Search</button>
       </form>
       <hr />
-      {repository.organization ? (
-        <Organization
-          organization={repository.organization}
-          errors={repository.errors}
-        />
-      ) : (
-        <p>No information yet ...</p>
+      {repository.organization && (
+        <Organization organization={repository.organization} />
       )}
     </div>
   );
 }
 
-const Organization = ({ organization, errors }) => {
-  if (errors) {
-    return (
-      <p>
-        <strong>Something went wrong:</strong>
-        {errors.map((error) => error.message).join(" ")}
-      </p>
-    );
-  }
+const Organization = ({ organization }) => {
   return (
     <div>
       <p>
